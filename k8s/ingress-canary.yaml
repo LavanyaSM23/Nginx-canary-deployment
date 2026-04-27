@@ -1,0 +1,45 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: nginx-ingress-stable
+  annotations:
+    # This is the PRIMARY ingress (stable traffic)
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: nginx.local
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: nginx-service      # Routes to stable pods
+            port:
+              number: 80
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: nginx-ingress-canary
+  annotations:
+    # Mark this ingress as canary — nginx ingress controller splits traffic
+    nginx.ingress.kubernetes.io/canary: "true"
+    # canary-weight: percentage of requests sent to canary (0–100)
+    # Change this value via the Admin Dashboard → "Update Weight" button
+    nginx.ingress.kubernetes.io/canary-weight: "20"
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: nginx.local
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: nginx-canary-service   # Routes to canary pods
+            port:
+              number: 80

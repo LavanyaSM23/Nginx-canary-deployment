@@ -1,0 +1,39 @@
+# ── Services ──────────────────────────────────────────────────────────────────
+
+# Service for Stable deployment
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-service
+  labels:
+    app: nginx
+    track: stable
+spec:
+  selector:
+    app: nginx
+    track: stable
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+  type: ClusterIP
+
+---
+
+# Service for Canary deployment
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-canary-service
+  labels:
+    app: nginx
+    track: canary
+spec:
+  selector:
+    app: nginx
+    track: canary
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+  type: ClusterIP
