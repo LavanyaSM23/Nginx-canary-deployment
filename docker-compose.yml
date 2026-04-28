@@ -1,0 +1,89 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Canary Dashboard — Docker Compose
+#  Run: docker-compose up --build
+#  Stop: docker-compose down
+# ═══════════════════════════════════════════════════════════════════════════════
+
+networks:
+  canary-net:
+    driver: bridge
+
+volumes:
+  backend-logs:
+
+services:
+
+  # ── Backend API ─────────────────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: canary-backend
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    environment:
+      - PORT=3001
+      - NODE_ENV=production
+      - APP_VERSION=1.0.0
+    networks:
+      - canary-net
+    volumes:
+      - backend-logs:/app/logs
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # ── Frontend (React → Nginx) ────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: canary-frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    networks:
+      - canary-net
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:80/health.txt"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  # ── Stable Nginx Pod (simulates k8s stable deployment) ─────────────────────
+  nginx-stable:
+    image: nginx:1.25-alpine
+    container_name: canary-nginx-stable
+    restart: unless-stopped
+    ports:
+      - "8081:80"
+    networks:
+      - canary-net
+    volumes:
+      - ./nginx-stable/html:/usr/share/nginx/html:ro
+    labels:
+      - "canary.version=v1.0.0"
+      - "canary.role=stable"
+
+  # ── Canary Nginx Pod (simulates k8s canary deployment) ─────────────────────
+  nginx-canary:
+    image: nginx:1.25-alpine
+    container_name: canary-nginx-canary
+    restart: unless-stopped
+    ports:
+      - "8082:80"
+    networks:
+      - canary-net
+    volumes:
+      - ./nginx-canary/html:/usr/share/nginx/html:ro
+    labels:
+      - "canary.version=v2.0.0"
+      - "canary.role=canary"
